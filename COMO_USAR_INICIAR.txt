@@ -1,0 +1,17 @@
+INICIAR_CONTROLE_OS.bat
+
+1. Coloque este arquivo DENTRO da mesma pasta do app.py.
+2. A pasta deve conter:
+   app.py
+   requirements.txt
+   INICIAR_CONTROLE_OS.bat
+   ChatGPT Image 7 de ago. de 2026, 10_25_44.png
+
+3. De dois cliques em INICIAR_CONTROLE_OS.bat.
+
+Na primeira vez ele:
+- cria o ambiente .venv;
+- instala os complementos do requirements.txt;
+- inicia o Streamlit.
+
+Nas próximas vezes, basta dar dois cliques novamente.
