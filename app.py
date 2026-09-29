@@ -56,47 +56,11 @@ ODS_MAP = {
 # -----------------------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
-html, body, [class*="css"], button, input, textarea, select,
-[data-testid="stMarkdownContainer"], [data-testid="stMetricLabel"],
-[data-testid="stMetricValue"] {
-    font-family: 'Montserrat', Arial, Helvetica, sans-serif !important;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision;
+html, body, [class*="css"] {
+    font-family: 'Montserrat', sans-serif;
 }
-
-[data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li,
-[data-testid="stMarkdownContainer"] span,
-[data-testid="stMarkdownContainer"] label {
-    font-weight: 600;
-}
-
-[data-testid="stMetricLabel"] p {
-    font-weight: 800 !important;
-    font-size: .78rem !important;
-}
-
-[data-testid="stMetricValue"] {
-    font-weight: 900 !important;
-    font-size: 1.65rem !important;
-    line-height: 1.15 !important;
-}
-
-[data-testid="stSelectbox"] label,
-[data-testid="stTextInput"] label,
-[data-testid="stMultiSelect"] label {
-    font-weight: 800 !important;
-}
-
-[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-[data-testid="stTextInput"] input {
-    font-weight: 700 !important;
-}
-
-body { font-weight: 500; }
 
 [data-testid="stAppViewContainer"] {
     background: #f4f6f8;
@@ -140,20 +104,19 @@ body { font-weight: 500; }
 .title-box h1 {
     margin: 0;
     font-size: 1.55rem;
-    font-weight: 900;
+    font-weight: 800;
     letter-spacing: .2px;
 }
 
 .title-box p {
     margin: 5px 0 0;
-    opacity: .96;
-    font-size: .84rem;
-    font-weight: 600;
+    opacity: .88;
+    font-size: .82rem;
 }
 
 .section {
-    font-size: 1.08rem;
-    font-weight: 900;
+    font-size: 1.05rem;
+    font-weight: 800;
     color: #123b63;
     margin: 18px 0 9px;
 }
@@ -167,7 +130,7 @@ div[data-testid="stMetric"] {
 }
 
 div[data-testid="stMetricLabel"] {
-    font-weight: 800;
+    font-weight: 700;
 }
 
 div[data-testid="stMetricValue"] {
@@ -318,6 +281,9 @@ def get_field(row, names, fallback_index=None):
     return ""
 
 def parse_date(v):
+    """Replica a ordem do parseDate() do HTML original.
+    1) datas ISO YYYY-MM-DD; 2) dd/mm/yyyy; 3) serial Excel; 4) fallback.
+    """
     if v is None or clean(v) == "":
         return pd.NaT
     if isinstance(v, (datetime, pd.Timestamp)):
@@ -328,8 +294,20 @@ def parse_date(v):
         except Exception:
             return pd.NaT
     s = clean(v)
-    d = pd.to_datetime(s, dayfirst=True, errors="coerce")
-    return d
+    # Mesmo critério do HTML: ISO é tratado antes de qualquer dayfirst.
+    if re.match(r"^\d{4}-\d{2}-\d{2}", s):
+        d = pd.to_datetime(s[:10], format="%Y-%m-%d", errors="coerce")
+        return d
+    m = re.match(r"^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})", s)
+    if m:
+        try:
+            y = int(m.group(3))
+            if y < 100:
+                y += 2000
+            return pd.Timestamp(year=y, month=int(m.group(2)), day=int(m.group(1)))
+        except Exception:
+            return pd.NaT
+    return pd.to_datetime(s, errors="coerce")
 
 def get_date_value(r):
     return get_field(
@@ -716,7 +694,7 @@ def load_data(force=False):
     if not processed.empty:
         processed["bairro_raw"] = processed["_raw"].apply(lambda r: get_field(r, ["bairro","Bairro","BAIRRO"], 7))
 
-    return os_all, vias, processed
+    return os_all, vias, rows2026, processed
 
 # -----------------------------
 # Sidebar
@@ -745,7 +723,7 @@ with st.sidebar:
 # -----------------------------
 try:
     with st.spinner("Consultando ordens de serviço e banco de ruas..."):
-        os_all, vias, all_rows = load_data(refresh)
+        os_all, vias, raw_rows_2026, all_rows = load_data(refresh)
 
     st.markdown(
         f'<div class="success-box">● Supabase conectado • '
@@ -753,6 +731,19 @@ try:
         f'<b>{len(all_rows):,}</b> OS de 2026</div>'.replace(",", "."),
         unsafe_allow_html=True,
     )
+
+    # Auditoria: estes números vêm dos registros brutos, antes de qualquer cálculo de via.
+    # Isso permite localizar exatamente onde uma diferença de contagem aparece.
+    raw_september = [r for r in raw_rows_2026 if month_of(r) == 9]
+    raw_valid_september = [r for r in raw_september if numeric_os(get_field(r, ["OS","O.S.","Nº OS","Nº O.S.","Numero OS","Número OS","os"], 0)) is not None]
+    with st.expander("🔎 Auditoria da contagem — origem dos números", expanded=True):
+        a1,a2,a3,a4,a5 = st.columns(5)
+        a1.metric("Registros recebidos", len(os_all))
+        a2.metric("Registros em 2026", len(raw_rows_2026))
+        a3.metric("Setembro/2026", len(raw_september))
+        a4.metric("OS válidas em setembro", len(raw_valid_september))
+        a5.metric("Registros sem OS numérica", len(raw_september)-len(raw_valid_september))
+        st.caption("A contagem de OS válidas segue a mesma regra do HTML: data_solicitacao em 2026/mês selecionado + OS numérica. O processamento de ruas não altera essa contagem.")
 except Exception as e:
     st.error(f"Erro ao carregar o Supabase: {e}")
     st.stop()
@@ -773,6 +764,21 @@ else:
 
 valid = rows[rows["OS"].apply(numeric_os).notna()].copy()
 total = len(valid)
+
+# Conferência rápida para setembro: mostra os registros brutos usados na contagem.
+if period_num == 9:
+    with st.expander("📋 Conferir OS de setembro usadas no cálculo", expanded=False):
+        raw_check = []
+        for r in raw_september:
+            osv = get_field(r, ["OS","O.S.","Nº OS","Nº O.S.","Numero OS","Número OS","os"], 0)
+            raw_check.append({
+                "OS": clean(osv),
+                "Data": date_text(r),
+                "Serviço": get_field(r, ["Tipo","TIPO","Tipo de Serviço","TIPO DE SERVIÇO","tipo"], 9),
+                "Bairro": get_field(r, ["bairro","Bairro","BAIRRO"], 7),
+                "Válida": numeric_os(osv) is not None,
+            })
+        st.dataframe(pd.DataFrame(raw_check), use_container_width=True, hide_index=True)
 
 st.markdown(f'<div class="section"><b>{period_title}</b><br><span class="small-muted">{period_sub}</span></div>', unsafe_allow_html=True)
 
