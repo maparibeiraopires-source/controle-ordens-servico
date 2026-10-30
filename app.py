@@ -44,7 +44,7 @@ ODS_NOMES = {
 SERVICOS = {
     1: "1 - Capinação",
     2: "2 - Cata Bagulho",
-    3: "3 - Varrição",
+    3: "3 - Poda de Árvore",
     4: "4 - Poda",
     5: "5 - Recolha de Capinação",
     6: "6 - Drenagem",
@@ -541,7 +541,7 @@ kpis = [
     ("OS válidas", total, "Total do período"),
     ("Números faltantes", len(missing), "Na sequência de OS"),
     ("Nivelamento", int(valid["Tipo original"].map(lambda x: "NIVELAMENTO" in normalize(x)).sum()), "Quantidade de OS"),
-    ("Varrição", int(valid["Tipo original"].map(lambda x: "VARRICAO" in normalize(x)).sum()), "Quantidade de OS"),
+    ("Varrição (serviço 22)", int(valid["Tipo original"].map(lambda x: "VARRICAO" in normalize(x)).sum()), "Quantidade de OS"),
     ("Capinação", int(valid["Tipo original"].map(lambda x: "CAPINACAO" in normalize(x)).sum()), "Quantidade de OS"),
     ("Cata-Bagulho", int(valid["Tipo original"].map(lambda x: "CATA BAGULHO" in normalize(x)).sum()), "Quantidade de OS"),
 ]
